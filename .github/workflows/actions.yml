@@ -1,0 +1,112 @@
+name: Deploy React Frontend to Hostinger
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.9.0'
+        
+    - name: Install dependencies
+      run: |
+        npm install
+        npm install framer-motion --save
+        
+    - name: Clean previous build
+      run: rm -rf dist out .next
+          
+    - name: Build React app
+      run: npm run build
+      
+    - name: Verify build output
+      run: |
+        echo "Build output:"
+        ls -la
+        echo -e "\nOut folder contents:"
+        ls -la out/
+    
+    - name: Remove txt files
+      run: |
+        find out -name "*.txt" -type f -delete
+        echo "All .txt files removed from build"
+      
+    - name: Generate SEO files
+      run: |
+        # Create sitemap.xml
+        cat > out/sitemap.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+          <url>
+            <loc>https://emergesocialcare.co.uk/</loc>
+            <lastmod>$(date -I)</lastmod>
+            <changefreq>weekly</changefreq>
+            <priority>1.0</priority>
+          </url>
+          <url>
+            <loc>https://emergesocialcare.co.uk/about</loc>
+            <lastmod>$(date -I)</lastmod>
+            <changefreq>monthly</changefreq>
+            <priority>0.8</priority>
+          </url>
+          <url>
+            <loc>https://emergesocialcare.co.uk/services</loc>
+            <lastmod>$(date -I)</lastmod>
+            <changefreq>monthly</changefreq>
+            <priority>0.9</priority>
+          </url>
+          <url>
+            <loc>https://emergesocialcare.co.uk/contact</loc>
+            <lastmod>$(date -I)</lastmod>
+            <changefreq>monthly</changefreq>
+            <priority>0.7</priority>
+          </url>
+        </urlset>
+        EOF
+        
+        # Create robots.txt
+        cat > out/robots.txt << 'EOF'
+        User-agent: *
+        Disallow: /dev/
+        Disallow: /admin/
+        Disallow: /test/
+        Disallow: /staging/
+        
+        Sitemap: https://emergesocialcare.co.uk/sitemap.xml
+        EOF
+        
+        echo "SEO files generated"
+      
+    - name: Deploy Frontend to dev (dev branch)
+      if: github.ref == 'refs/heads/dev'
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        password: ${{ secrets.SSH_PASSWORD }}
+        port: ${{ secrets.SSH_PORT }}
+        source: "out/*"
+        target: "/home/${{ secrets.SSH_USER }}/domains/emergesocialcare.co.uk/public_html/dev/"
+        strip_components: 1
+        
+    - name: Deploy Frontend to Production (main branch)
+      if: github.ref == 'refs/heads/main'
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        password: ${{ secrets.SSH_PASSWORD }}
+        port: ${{ secrets.SSH_PORT }}
+        source: "out/*"
+        target: "/home/${{ secrets.SSH_USER }}/domains/emergesocialcare.co.uk/public_html/"
+        strip_components: 1
