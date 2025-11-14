@@ -1,6 +1,6 @@
 <?php
 // Professional VPS Control Panel - PHP Frontend
-// Enterprise-grade with file editing and fail-safe features
+// Enterprise-grade with Database Management & File Editing
 
 session_start();
 
@@ -72,6 +72,14 @@ $directory_contents = null;
 $file_content = null;
 $editing_file = null;
 
+// Database variables
+$databases = null;
+$database_tables = null;
+$table_data = null;
+$current_database = $_GET['database'] ?? '';
+$current_table = $_GET['table'] ?? '';
+$phpmyadmin_url = null;
+
 if ($authenticated) {
     $auth_data = [
         'username' => $_SESSION['username'],
@@ -83,10 +91,37 @@ if ($authenticated) {
         $system_health = call_python_api('/health', $auth_data);
     }
     
-    // List directory
-    $directory_contents = call_python_api('/ls', array_merge($auth_data, [
-        'path' => $current_dir
-    ]));
+    // Handle database operations
+    if (isset($_GET['view']) && $_GET['view'] === 'databases') {
+        $databases = call_python_api('/databases/list', $auth_data);
+        
+        if (isset($_GET['database']) && !empty($_GET['database'])) {
+            $database_tables = call_python_api('/databases/tables', array_merge($auth_data, [
+                'database' => $_GET['database']
+            ]));
+            
+            if (isset($_GET['table']) && !empty($_GET['table'])) {
+                $table_data = call_python_api('/databases/table-data', array_merge($auth_data, [
+                    'database' => $_GET['database'],
+                    'table' => $_GET['table'],
+                    'limit' => 50
+                ]));
+            }
+        }
+        
+        // Get phpMyAdmin URL
+        $phpmyadmin_result = call_python_api('/phpmyadmin/url', $auth_data);
+        if ($phpmyadmin_result['success']) {
+            $phpmyadmin_url = $phpmyadmin_result['url'];
+        }
+    }
+    
+    // List directory (only if not viewing databases)
+    if (!isset($_GET['view']) || $_GET['view'] !== 'databases') {
+        $directory_contents = call_python_api('/ls', array_merge($auth_data, [
+            'path' => $current_dir
+        ]));
+    }
     
     // Handle actions
     if (isset($_POST['command'])) {
@@ -132,6 +167,30 @@ if ($authenticated) {
         header('Location: ?dir=' . urlencode($current_dir));
         exit;
     }
+    
+    // Database operations
+    if (isset($_POST['create_database'])) {
+        $api_result = call_python_api('/databases/create', array_merge($auth_data, [
+            'database_name' => $_POST['database_name']
+        ]));
+        header('Location: ?view=databases');
+        exit;
+    }
+    
+    if (isset($_GET['delete_database'])) {
+        $api_result = call_python_api('/databases/delete', array_merge($auth_data, [
+            'database_name' => $_GET['delete_database']
+        ]));
+        header('Location: ?view=databases');
+        exit;
+    }
+    
+    if (isset($_POST['install_phpmyadmin'])) {
+        $api_result = call_python_api('/phpmyadmin/install', $auth_data);
+        if ($api_result['success']) {
+            $phpmyadmin_url = $api_result['url'];
+        }
+    }
 }
 
 // Function to get file icon
@@ -143,6 +202,19 @@ function get_file_icon($file_type, $is_dir) {
         case 'image': return '🖼️';
         case 'text': return '📄';
         default: return '📄';
+    }
+}
+
+// Function to format file size
+function format_size($bytes) {
+    if ($bytes >= 1073741824) {
+        return number_format($bytes / 1073741824, 2) . ' GB';
+    } elseif ($bytes >= 1048576) {
+        return number_format($bytes / 1048576, 2) . ' MB';
+    } elseif ($bytes >= 1024) {
+        return number_format($bytes / 1024, 2) . ' KB';
+    } else {
+        return $bytes . ' B';
     }
 }
 ?>
@@ -173,10 +245,11 @@ function get_file_icon($file_type, $is_dir) {
         .navbar { background: var(--primary); padding: 15px; display: flex; justify-content: space-between; align-items: center; }
         .nav-links a { color: var(--light); text-decoration: none; margin: 0 15px; padding: 8px 15px; border-radius: 5px; transition: background 0.3s; }
         .nav-links a:hover { background: rgba(255,255,255,0.1); }
+        .nav-links a.active { background: var(--secondary); }
         
         .content { padding: 25px; }
         .panel { background: #3d3d3d; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid var(--secondary); }
-        .panel-header { display: flex; justify-content: between; align-items: center; margin-bottom: 15px; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .panel-header h3 { color: var(--secondary); margin: 0; }
         
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -190,14 +263,15 @@ function get_file_icon($file_type, $is_dir) {
         .btn-danger:hover { background: #c0392b; }
         .btn-warning { background: var(--warning); }
         .btn-warning:hover { background: #e67e22; }
+        .btn-small { padding: 5px 10px; font-size: 12px; }
         
         input, textarea, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #555; border-radius: 5px; background: #4d4d4d; color: var(--light); font-size: 14px; }
         input:focus, textarea:focus, select:focus { outline: none; border-color: var(--secondary); }
         
-        .file-table { width: 100%; border-collapse: collapse; background: #4d4d4d; border-radius: 5px; overflow: hidden; }
-        .file-table th, .file-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #555; }
-        .file-table th { background: var(--primary); color: var(--light); font-weight: 600; }
-        .file-table tr:hover { background: #5d5d5d; }
+        .file-table, .db-table { width: 100%; border-collapse: collapse; background: #4d4d4d; border-radius: 5px; overflow: hidden; }
+        .file-table th, .file-table td, .db-table th, .db-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #555; }
+        .file-table th, .db-table th { background: var(--primary); color: var(--light); font-weight: 600; }
+        .file-table tr:hover, .db-table tr:hover { background: #5d5d5d; }
         
         .status-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
         .status-active { background: var(--success); }
@@ -217,13 +291,23 @@ function get_file_icon($file_type, $is_dir) {
         .alert-success { background: rgba(39, 174, 96, 0.2); border-left: 4px solid var(--success); }
         .alert-error { background: rgba(231, 76, 60, 0.2); border-left: 4px solid var(--danger); }
         .alert-warning { background: rgba(243, 156, 18, 0.2); border-left: 4px solid var(--warning); }
+        .alert-info { background: rgba(52, 152, 219, 0.2); border-left: 4px solid var(--secondary); }
         
         .system-health { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
         .health-item { background: #4d4d4d; padding: 15px; border-radius: 5px; }
         
+        .db-breadcrumb { background: #4d4d4d; padding: 10px 15px; border-radius: 5px; margin-bottom: 15px; }
+        .db-breadcrumb a { color: var(--secondary); text-decoration: none; }
+        .db-breadcrumb .separator { margin: 0 10px; color: #888; }
+        
+        .data-table { width: 100%; border-collapse: collapse; background: #4d4d4d; border-radius: 5px; overflow: auto; display: block; max-height: 500px; }
+        .data-table th, .data-table td { padding: 8px 12px; border: 1px solid #555; white-space: nowrap; }
+        .data-table th { background: var(--primary); position: sticky; top: 0; }
+        
         @media (max-width: 768px) {
             .grid-2 { grid-template-columns: 1fr; }
             .navbar { flex-direction: column; gap: 10px; }
+            .data-table { font-size: 12px; }
         }
     </style>
 </head>
@@ -231,7 +315,7 @@ function get_file_icon($file_type, $is_dir) {
     <div class="container">
         <div class="header">
             <h1><i class="fas fa-server"></i> Professional VPS Control Panel</h1>
-            <p>Enterprise-grade server management with full file editing capabilities</p>
+            <p>Enterprise-grade server management with full database & file editing capabilities</p>
         </div>
         
         <?php if (!$authenticated): ?>
@@ -257,10 +341,10 @@ function get_file_icon($file_type, $is_dir) {
         <?php else: ?>
         <div class="navbar">
             <div class="nav-links">
-                <a href="?"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-                <a href="?dir=/"><i class="fas fa-folder"></i> File Manager</a>
+                <a href="?" class="<?= !isset($_GET['view']) ? 'active' : '' ?>"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="?dir=/" class="<?= (isset($_GET['dir']) && !isset($_GET['view'])) ? 'active' : '' ?>"><i class="fas fa-folder"></i> File Manager</a>
+                <a href="?view=databases" class="<?= (isset($_GET['view']) && $_GET['view'] === 'databases') ? 'active' : '' ?>"><i class="fas fa-database"></i> Databases</a>
                 <a href="?"><i class="fas fa-terminal"></i> Terminal</a>
-                <a href="?"><i class="fas fa-database"></i> Databases</a>
             </div>
             <div style="color: var(--light);">
                 <i class="fas fa-user"></i> <?= htmlspecialchars($_SESSION['username']) ?>
@@ -272,7 +356,7 @@ function get_file_icon($file_type, $is_dir) {
         
         <div class="content">
             <!-- System Health Dashboard -->
-            <?php if ($system_health && $system_health['success']): ?>
+            <?php if ($system_health && $system_health['success'] && !isset($_GET['view'])): ?>
             <div class="panel">
                 <div class="panel-header">
                     <h3><i class="fas fa-heartbeat"></i> System Health</h3>
@@ -300,6 +384,19 @@ function get_file_icon($file_type, $is_dir) {
                             <?= nl2br(htmlspecialchars($system_health['health']['memory'] ?? 'N/A')) ?>
                         </div>
                     </div>
+                    
+                    <div class="health-item">
+                        <h4><i class="fas fa-database"></i> Database Status</h4>
+                        <div style="margin-top: 10px;">
+                            <?php if ($system_health['health']['database_status']['connected']): ?>
+                                <span class="status-indicator status-active"></span>
+                                <span>Connected (<?= $system_health['health']['database_status']['database_count'] ?> databases)</span>
+                            <?php else: ?>
+                                <span class="status-indicator status-inactive"></span>
+                                <span>Not Connected</span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
                 
                 <div style="margin-top: 20px;">
@@ -314,6 +411,149 @@ function get_file_icon($file_type, $is_dir) {
                         <?php endforeach; ?>
                     </div>
                 </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Database Management -->
+            <?php if (isset($_GET['view']) && $_GET['view'] === 'databases'): ?>
+            <div class="panel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-database"></i> Database Management</h3>
+                    <div>
+                        <?php if ($phpmyadmin_url): ?>
+                            <a href="<?= $phpmyadmin_url ?>" target="_blank" class="btn btn-success">
+                                <i class="fas fa-external-link-alt"></i> phpMyAdmin
+                            </a>
+                        <?php else: ?>
+                            <form method="POST" style="display: inline;">
+                                <button type="submit" name="install_phpmyadmin" class="btn btn-warning">
+                                    <i class="fas fa-download"></i> Install phpMyAdmin
+                                </button>
+                            </form>
+                        <?php endif; ?>
+                        <button onclick="document.getElementById('createDbModal').style.display='block'" class="btn btn-success">
+                            <i class="fas fa-plus"></i> Create Database
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Database Breadcrumb -->
+                <div class="db-breadcrumb">
+                    <a href="?view=databases">Databases</a>
+                    <?php if ($current_database): ?>
+                        <span class="separator">/</span>
+                        <a href="?view=databases&database=<?= urlencode($current_database) ?>"><?= htmlspecialchars($current_database) ?></a>
+                    <?php endif; ?>
+                    <?php if ($current_table): ?>
+                        <span class="separator">/</span>
+                        <span><?= htmlspecialchars($current_table) ?></span>
+                    <?php endif; ?>
+                </div>
+
+                <?php if ($table_data && $table_data['success']): ?>
+                    <!-- Table Data View -->
+                    <div class="alert alert-info">
+                        <i class="fas fa-table"></i> 
+                        Viewing table <strong><?= htmlspecialchars($table_data['table']) ?></strong> from database <strong><?= htmlspecialchars($table_data['database']) ?></strong>
+                        (<?= $table_data['total_rows'] ?> rows displayed)
+                    </div>
+
+                    <div style="overflow-x: auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <?php foreach ($table_data['columns'] as $column): ?>
+                                        <th><?= htmlspecialchars($column) ?></th>
+                                    <?php endforeach; ?>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($table_data['data'] as $row): ?>
+                                    <tr>
+                                        <?php foreach ($table_data['columns'] as $column): ?>
+                                            <td><?= htmlspecialchars($row[$column] ?? 'NULL') ?></td>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                <?php elseif ($database_tables && $database_tables['success']): ?>
+                    <!-- Tables List View -->
+                    <div class="alert alert-info">
+                        <i class="fas fa-database"></i> 
+                        Viewing tables in database <strong><?= htmlspecialchars($database_tables['database']) ?></strong>
+                    </div>
+
+                    <table class="db-table">
+                        <thead>
+                            <tr>
+                                <th>Table Name</th>
+                                <th>Rows</th>
+                                <th>Engine</th>
+                                <th>Size</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($database_tables['tables'] as $table): ?>
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-table"></i> 
+                                        <?= htmlspecialchars($table['name']) ?>
+                                    </td>
+                                    <td><?= number_format($table['rows']) ?></td>
+                                    <td><?= htmlspecialchars($table['engine']) ?></td>
+                                    <td><?= format_size($table['size']) ?></td>
+                                    <td>
+                                        <a href="?view=databases&database=<?= urlencode($current_database) ?>&table=<?= urlencode($table['name']) ?>" class="btn btn-small">
+                                            <i class="fas fa-eye"></i> View Data
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+
+                <?php elseif ($databases): ?>
+                    <!-- Databases List View -->
+                    <?php if ($databases['success'] && !empty($databases['databases'])): ?>
+                        <table class="db-table">
+                            <thead>
+                                <tr>
+                                    <th>Database Name</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($databases['databases'] as $database): ?>
+                                    <tr>
+                                        <td>
+                                            <i class="fas fa-database"></i> 
+                                            <?= htmlspecialchars($database) ?>
+                                        </td>
+                                        <td>
+                                            <a href="?view=databases&database=<?= urlencode($database) ?>" class="btn btn-small">
+                                                <i class="fas fa-list"></i> View Tables
+                                            </a>
+                                            <a href="?view=databases&delete_database=<?= urlencode($database) ?>" 
+                                               class="btn btn-small btn-danger"
+                                               onclick="return confirm('Delete database <?= htmlspecialchars($database) ?>? This cannot be undone!')">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php else: ?>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-database"></i> 
+                            <?= htmlspecialchars($databases['error'] ?? 'No databases found or MySQL not connected') ?>
+                        </div>
+                    <?php endif; ?>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
 
@@ -357,6 +597,7 @@ function get_file_icon($file_type, $is_dir) {
             <?php endif; ?>
 
             <!-- Command Terminal -->
+            <?php if (!isset($_GET['view']) || $_GET['view'] !== 'databases'): ?>
             <div class="panel">
                 <h3><i class="fas fa-terminal"></i> Command Terminal</h3>
                 <form method="POST">
@@ -382,8 +623,10 @@ function get_file_icon($file_type, $is_dir) {
                     </div>
                 <?php endif; ?>
             </div>
+            <?php endif; ?>
 
             <!-- File Manager -->
+            <?php if (!isset($_GET['view']) || $_GET['view'] !== 'databases'): ?>
             <div class="panel">
                 <div class="panel-header">
                     <h3><i class="fas fa-folder"></i> File Manager</h3>
@@ -483,7 +726,7 @@ function get_file_icon($file_type, $is_dir) {
                                             <?php if ($item['is_dir']): ?>
                                                 <span style="color: #888;">DIR</span>
                                             <?php else: ?>
-                                                <?= number_format($item['size']) ?> B
+                                                <?= format_size($item['size']) ?>
                                             <?php endif; ?>
                                         </td>
                                         <td><code><?= htmlspecialchars($item['perms']) ?></code></td>
@@ -492,13 +735,12 @@ function get_file_icon($file_type, $is_dir) {
                                         <td>
                                             <div style="display: flex; gap: 5px; flex-wrap: wrap;">
                                                 <?php if (!$item['is_dir'] && $item['readable']): ?>
-                                                    <a href="?dir=<?= urlencode($current_dir) ?>&edit=<?= urlencode($item['name']) ?>" class="btn" style="padding: 5px 10px; font-size: 12px;">
+                                                    <a href="?dir=<?= urlencode($current_dir) ?>&edit=<?= urlencode($item['name']) ?>" class="btn btn-small">
                                                         <i class="fas fa-edit"></i> Edit
                                                     </a>
                                                 <?php endif; ?>
                                                 <a href="?dir=<?= urlencode($current_dir) ?>&delete=<?= urlencode($item['name']) ?>" 
-                                                   class="btn btn-danger" 
-                                                   style="padding: 5px 10px; font-size: 12px;"
+                                                   class="btn btn-small btn-danger" 
                                                    onclick="return confirm('Delete <?= htmlspecialchars($item['name']) ?>?')">
                                                     <i class="fas fa-trash"></i> Delete
                                                 </a>
@@ -520,9 +762,10 @@ function get_file_icon($file_type, $is_dir) {
                     </div>
                 <?php endif; ?>
             </div>
+            <?php endif; ?>
         </div>
 
-        <!-- Create New Item Modal -->
+        <!-- Create New File/Directory Modal -->
         <div id="createModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000;">
             <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #3d3d3d; padding: 25px; border-radius: 8px; width: 90%; max-width: 400px;">
                 <h3 style="margin-bottom: 20px; color: var(--secondary);">
@@ -547,10 +790,36 @@ function get_file_icon($file_type, $is_dir) {
             </div>
         </div>
 
-        
+        <!-- Create Database Modal -->
+        <div id="createDbModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000;">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #3d3d3d; padding: 25px; border-radius: 8px; width: 90%; max-width: 400px;">
+                <h3 style="margin-bottom: 20px; color: var(--secondary);">
+                    <i class="fas fa-database"></i> Create Database
+                </h3>
+                <form method="POST">
+                    <input type="hidden" name="create_database" value="1">
+                    <input type="text" name="database_name" placeholder="Database Name" required style="margin-bottom: 15px;">
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="btn btn-warning" style="flex: 1;" onclick="document.getElementById('createDbModal').style.display='none'">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-success" style="flex: 1;">
+                            Create Database
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <script>
-            // Close modal when clicking outside
-            document.getElementById('createModal').addEventListener('click', function(e) {
+            // Close modals when clicking outside
+            document.getElementById('createModal')?.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.style.display = 'none';
+                }
+            });
+            
+            document.getElementById('createDbModal')?.addEventListener('click', function(e) {
                 if (e.target === this) {
                     this.style.display = 'none';
                 }

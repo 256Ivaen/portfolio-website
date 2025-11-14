@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Professional VPS Control Panel - Python Backend
-Enterprise-grade with file editing and fail-safe features
+Enterprise-grade with Database Management & phpMyAdmin Integration
 """
 
 import os
@@ -11,9 +11,12 @@ import subprocess
 import pwd
 import grp
 import shutil
+import MySQLdb
+import psutil
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import urllib.parse
 
 app = Flask(__name__)
 CORS(app)
@@ -23,10 +26,18 @@ VALID_CREDENTIALS = {
     'admin': 'Iv@n0772717963'
 }
 
+# Database configuration
+DB_CONFIG = {
+    'host': 'localhost',
+    'user': 'root',
+    'passwd': '',  # You'll need to set this
+    'charset': 'utf8mb4'
+}
+
 # Fail-safe configuration
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 ALLOWED_COMMANDS = ['ls', 'cd', 'cat', 'find', 'grep', 'ps', 'df', 'du', 'tail', 'head']
-RESTRICTED_PATHS = ['/proc', '/sys', '/dev']  # Can be customized
+RESTRICTED_PATHS = ['/proc', '/sys', '/dev']
 
 def authenticate(username, password):
     return VALID_CREDENTIALS.get(username) == password
@@ -45,7 +56,6 @@ def is_safe_path(path):
 def run_command_safe(cmd):
     """Safe command execution with timeout and limits"""
     try:
-        # Basic command validation
         if any(blocked in cmd for blocked in ['rm -rf /', 'dd if=', 'mkfs', ':(){:|:&};:']):
             return {'success': False, 'error': 'Dangerous command blocked'}
         
@@ -66,6 +76,188 @@ def run_command_safe(cmd):
         return {'success': False, 'error': 'Command timed out'}
     except Exception as e:
         return {'success': False, 'error': str(e)}
+
+def get_mysql_connection():
+    """Get MySQL connection with error handling"""
+    try:
+        # Try to get MySQL root password from common locations
+        password = None
+        
+        # Try to read from /etc/my.cnf or /etc/mysql/my.cnf
+        for config_file in ['/etc/my.cnf', '/etc/mysql/my.cnf', '/etc/mysql/mysql.conf.d/mysqld.cnf']:
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    content = f.read()
+                    if 'password' in content:
+                        # Extract password from config (simplified)
+                        for line in content.split('\n'):
+                            if 'password' in line and '=' in line:
+                                password = line.split('=')[1].strip()
+                                break
+        
+        config = DB_CONFIG.copy()
+        if password:
+            config['passwd'] = password
+            
+        connection = MySQLdb.connect(**config)
+        return connection
+    except Exception as e:
+        return None
+
+def list_databases():
+    """List all MySQL databases"""
+    try:
+        connection = get_mysql_connection()
+        if not connection:
+            return {'success': False, 'error': 'Could not connect to MySQL'}
+        
+        cursor = connection.cursor()
+        cursor.execute("SHOW DATABASES")
+        databases = [row[0] for row in cursor.fetchall() if row[0] not in ['information_schema', 'performance_schema', 'mysql', 'sys']]
+        
+        cursor.close()
+        connection.close()
+        
+        return {'success': True, 'databases': databases}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+def get_database_tables(database_name):
+    """Get tables for a specific database"""
+    try:
+        connection = get_mysql_connection()
+        if not connection:
+            return {'success': False, 'error': 'Could not connect to MySQL'}
+        
+        cursor = connection.cursor()
+        cursor.execute(f"USE `{database_name}`")
+        cursor.execute("SHOW TABLES")
+        tables = [row[0] for row in cursor.fetchall()]
+        
+        # Get table info
+        table_info = []
+        for table in tables:
+            cursor.execute(f"SHOW TABLE STATUS LIKE '{table}'")
+            status = cursor.fetchone()
+            cursor.execute(f"SELECT COUNT(*) FROM `{table}`")
+            row_count = cursor.fetchone()[0]
+            
+            table_info.append({
+                'name': table,
+                'rows': row_count,
+                'engine': status[1] if status else 'Unknown',
+                'size': status[6] if status else 0
+            })
+        
+        cursor.close()
+        connection.close()
+        
+        return {'success': True, 'tables': table_info, 'database': database_name}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+def get_table_data(database_name, table_name, limit=100):
+    """Get data from a specific table"""
+    try:
+        connection = get_mysql_connection()
+        if not connection:
+            return {'success': False, 'error': 'Could not connect to MySQL'}
+        
+        cursor = connection.cursor()
+        cursor.execute(f"USE `{database_name}`")
+        
+        # Get column names
+        cursor.execute(f"DESCRIBE `{table_name}`")
+        columns = [row[0] for row in cursor.fetchall()]
+        
+        # Get data
+        cursor.execute(f"SELECT * FROM `{table_name}` LIMIT {limit}")
+        rows = cursor.fetchall()
+        
+        # Convert to list of dictionaries
+        data = []
+        for row in rows:
+            data.append(dict(zip(columns, row)))
+        
+        cursor.close()
+        connection.close()
+        
+        return {
+            'success': True, 
+            'columns': columns, 
+            'data': data, 
+            'database': database_name, 
+            'table': table_name,
+            'total_rows': len(rows)
+        }
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+def create_database(database_name):
+    """Create a new database"""
+    try:
+        connection = get_mysql_connection()
+        if not connection:
+            return {'success': False, 'error': 'Could not connect to MySQL'}
+        
+        cursor = connection.cursor()
+        cursor.execute(f"CREATE DATABASE `{database_name}`")
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return {'success': True, 'message': f'Database {database_name} created successfully'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+def delete_database(database_name):
+    """Delete a database"""
+    try:
+        connection = get_mysql_connection()
+        if not connection:
+            return {'success': False, 'error': 'Could not connect to MySQL'}
+        
+        cursor = connection.cursor()
+        cursor.execute(f"DROP DATABASE `{database_name}`")
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return {'success': True, 'message': f'Database {database_name} deleted successfully'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+def get_phpmyadmin_url():
+    """Get or create phpMyAdmin access URL"""
+    try:
+        # Check if phpMyAdmin is installed
+        possible_paths = [
+            '/usr/share/phpmyadmin',
+            '/var/www/phpmyadmin',
+            '/usr/share/nginx/phpmyadmin',
+            '/var/www/html/phpmyadmin'
+        ]
+        
+        phpmyadmin_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                phpmyadmin_path = path
+                break
+        
+        if phpmyadmin_path:
+            # Create a symbolic link if needed
+            web_root = '/var/www/html'
+            if os.path.exists(web_root):
+                link_path = os.path.join(web_root, 'phpmyadmin')
+                if not os.path.exists(link_path):
+                    os.symlink(phpmyadmin_path, link_path)
+                return '/phpmyadmin'
+        
+        return None
+    except Exception as e:
+        return None
 
 def list_directory_enhanced(path):
     """Enhanced directory listing with file types"""
@@ -197,6 +389,16 @@ def get_system_health():
                 if result['success'] and result['output']:
                     health['websites'].extend(result['output'].strip().split('\n'))
         
+        # Database status
+        db_status = list_databases()
+        health['database_status'] = {
+            'connected': db_status['success'],
+            'database_count': len(db_status.get('databases', [])) if db_status['success'] else 0
+        }
+        
+        # phpMyAdmin status
+        health['phpmyadmin'] = get_phpmyadmin_url() is not None
+        
         return {'success': True, 'health': health}
     except Exception as e:
         return {'success': False, 'error': str(e)}
@@ -296,6 +498,89 @@ def api_create():
             with open(path, 'w') as f:
                 f.write('')
         return jsonify({'success': True, 'message': 'Created successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+# Database Management Routes
+@app.route('/api/databases/list', methods=['POST'])
+def api_list_databases():
+    data = request.get_json()
+    if not authenticate(data.get('username'), data.get('password')):
+        return jsonify({'success': False, 'error': 'Authentication required'})
+    
+    result = list_databases()
+    return jsonify(result)
+
+@app.route('/api/databases/tables', methods=['POST'])
+def api_get_database_tables():
+    data = request.get_json()
+    if not authenticate(data.get('username'), data.get('password')):
+        return jsonify({'success': False, 'error': 'Authentication required'})
+    
+    database_name = data.get('database', '')
+    result = get_database_tables(database_name)
+    return jsonify(result)
+
+@app.route('/api/databases/table-data', methods=['POST'])
+def api_get_table_data():
+    data = request.get_json()
+    if not authenticate(data.get('username'), data.get('password')):
+        return jsonify({'success': False, 'error': 'Authentication required'})
+    
+    database_name = data.get('database', '')
+    table_name = data.get('table', '')
+    limit = data.get('limit', 100)
+    
+    result = get_table_data(database_name, table_name, limit)
+    return jsonify(result)
+
+@app.route('/api/databases/create', methods=['POST'])
+def api_create_database():
+    data = request.get_json()
+    if not authenticate(data.get('username'), data.get('password')):
+        return jsonify({'success': False, 'error': 'Authentication required'})
+    
+    database_name = data.get('database_name', '')
+    result = create_database(database_name)
+    return jsonify(result)
+
+@app.route('/api/databases/delete', methods=['POST'])
+def api_delete_database():
+    data = request.get_json()
+    if not authenticate(data.get('username'), data.get('password')):
+        return jsonify({'success': False, 'error': 'Authentication required'})
+    
+    database_name = data.get('database_name', '')
+    result = delete_database(database_name)
+    return jsonify(result)
+
+@app.route('/api/phpmyadmin/url', methods=['POST'])
+def api_get_phpmyadmin_url():
+    data = request.get_json()
+    if not authenticate(data.get('username'), data.get('password')):
+        return jsonify({'success': False, 'error': 'Authentication required'})
+    
+    phpmyadmin_url = get_phpmyadmin_url()
+    if phpmyadmin_url:
+        return jsonify({'success': True, 'url': phpmyadmin_url})
+    else:
+        return jsonify({'success': False, 'error': 'phpMyAdmin not found'})
+
+@app.route('/api/phpmyadmin/install', methods=['POST'])
+def api_install_phpmyadmin():
+    data = request.get_json()
+    if not authenticate(data.get('username'), data.get('password')):
+        return jsonify({'success': False, 'error': 'Authentication required'})
+    
+    try:
+        # Install phpMyAdmin
+        result = run_command_safe('yum install phpmyadmin -y || apt install phpmyadmin -y')
+        if result['success']:
+            # Ensure it's accessible via web
+            phpmyadmin_url = get_phpmyadmin_url()
+            return jsonify({'success': True, 'url': phpmyadmin_url, 'message': 'phpMyAdmin installed successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to install phpMyAdmin'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 

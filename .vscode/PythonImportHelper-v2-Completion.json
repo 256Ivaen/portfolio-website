@@ -1,0 +1,483 @@
+[
+    {
+        "label": "json",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "json",
+        "description": "json",
+        "detail": "json",
+        "documentation": {}
+    },
+    {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "sys",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "sys",
+        "description": "sys",
+        "detail": "sys",
+        "documentation": {}
+    },
+    {
+        "label": "subprocess",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "subprocess",
+        "description": "subprocess",
+        "detail": "subprocess",
+        "documentation": {}
+    },
+    {
+        "label": "pwd",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "pwd",
+        "description": "pwd",
+        "detail": "pwd",
+        "documentation": {}
+    },
+    {
+        "label": "grp",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "grp",
+        "description": "grp",
+        "detail": "grp",
+        "documentation": {}
+    },
+    {
+        "label": "shutil",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "shutil",
+        "description": "shutil",
+        "detail": "shutil",
+        "documentation": {}
+    },
+    {
+        "label": "MySQLdb",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "MySQLdb",
+        "description": "MySQLdb",
+        "detail": "MySQLdb",
+        "documentation": {}
+    },
+    {
+        "label": "psutil",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "psutil",
+        "description": "psutil",
+        "detail": "psutil",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "Flask",
+        "importPath": "flask",
+        "description": "flask",
+        "isExtraImport": true,
+        "detail": "flask",
+        "documentation": {}
+    },
+    {
+        "label": "request",
+        "importPath": "flask",
+        "description": "flask",
+        "isExtraImport": true,
+        "detail": "flask",
+        "documentation": {}
+    },
+    {
+        "label": "jsonify",
+        "importPath": "flask",
+        "description": "flask",
+        "isExtraImport": true,
+        "detail": "flask",
+        "documentation": {}
+    },
+    {
+        "label": "CORS",
+        "importPath": "flask_cors",
+        "description": "flask_cors",
+        "isExtraImport": true,
+        "detail": "flask_cors",
+        "documentation": {}
+    },
+    {
+        "label": "urllib.parse",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "urllib.parse",
+        "description": "urllib.parse",
+        "detail": "urllib.parse",
+        "documentation": {}
+    },
+    {
+        "label": "_Known",
+        "kind": 6,
+        "importPath": "node_modules.flatted.python.flatted",
+        "description": "node_modules.flatted.python.flatted",
+        "peekOfCode": "class _Known:\n    def __init__(self):\n        self.key = []\n        self.value = []\nclass _String:\n    def __init__(self, value):\n        self.value = value\ndef _array_keys(value):\n    keys = []\n    i = 0",
+        "detail": "node_modules.flatted.python.flatted",
+        "documentation": {}
+    },
+    {
+        "label": "_String",
+        "kind": 6,
+        "importPath": "node_modules.flatted.python.flatted",
+        "description": "node_modules.flatted.python.flatted",
+        "peekOfCode": "class _String:\n    def __init__(self, value):\n        self.value = value\ndef _array_keys(value):\n    keys = []\n    i = 0\n    for _ in value:\n        keys.append(i)\n        i += 1\n    return keys",
+        "detail": "node_modules.flatted.python.flatted",
+        "documentation": {}
+    },
+    {
+        "label": "parse",
+        "kind": 2,
+        "importPath": "node_modules.flatted.python.flatted",
+        "description": "node_modules.flatted.python.flatted",
+        "peekOfCode": "def parse(value, *args, **kwargs):\n    json = _json.loads(value, *args, **kwargs)\n    wrapped = []\n    for value in json:\n        wrapped.append(_wrap(value))\n    input = []\n    for value in wrapped:\n        if isinstance(value, _String):\n            input.append(value.value)\n        else:",
+        "detail": "node_modules.flatted.python.flatted",
+        "documentation": {}
+    },
+    {
+        "label": "stringify",
+        "kind": 2,
+        "importPath": "node_modules.flatted.python.flatted",
+        "description": "node_modules.flatted.python.flatted",
+        "peekOfCode": "def stringify(value, *args, **kwargs):\n    known = _Known()\n    input = []\n    output = []\n    i = int(_index(known, input, value))\n    while i < len(input):\n        output.append(_transform(known, input, input[i]))\n        i += 1\n    return _json.dumps(output, *args, **kwargs)",
+        "detail": "node_modules.flatted.python.flatted",
+        "documentation": {}
+    },
+    {
+        "label": "authenticate",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def authenticate(username, password):\n    return VALID_CREDENTIALS.get(username) == password\ndef is_safe_path(path):\n    \"\"\"Prevent path traversal attacks\"\"\"\n    try:\n        absolute_path = os.path.abspath(path)\n        for restricted in RESTRICTED_PATHS:\n            if absolute_path.startswith(restricted):\n                return False\n        return True",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "is_safe_path",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def is_safe_path(path):\n    \"\"\"Prevent path traversal attacks\"\"\"\n    try:\n        absolute_path = os.path.abspath(path)\n        for restricted in RESTRICTED_PATHS:\n            if absolute_path.startswith(restricted):\n                return False\n        return True\n    except:\n        return False",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "run_command_safe",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def run_command_safe(cmd):\n    \"\"\"Safe command execution with timeout and limits\"\"\"\n    try:\n        if any(blocked in cmd for blocked in ['rm -rf /', 'dd if=', 'mkfs', ':(){:|:&};:']):\n            return {'success': False, 'error': 'Dangerous command blocked'}\n        result = subprocess.run(\n            cmd, \n            shell=True, \n            capture_output=True, \n            text=True, ",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "get_mysql_connection",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def get_mysql_connection():\n    \"\"\"Get MySQL connection with error handling\"\"\"\n    try:\n        # Try to get MySQL root password from common locations\n        password = None\n        # Try to read from /etc/my.cnf or /etc/mysql/my.cnf\n        for config_file in ['/etc/my.cnf', '/etc/mysql/my.cnf', '/etc/mysql/mysql.conf.d/mysqld.cnf']:\n            if os.path.exists(config_file):\n                with open(config_file, 'r') as f:\n                    content = f.read()",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "list_databases",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def list_databases():\n    \"\"\"List all MySQL databases\"\"\"\n    try:\n        connection = get_mysql_connection()\n        if not connection:\n            return {'success': False, 'error': 'Could not connect to MySQL'}\n        cursor = connection.cursor()\n        cursor.execute(\"SHOW DATABASES\")\n        databases = [row[0] for row in cursor.fetchall() if row[0] not in ['information_schema', 'performance_schema', 'mysql', 'sys']]\n        cursor.close()",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "get_database_tables",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def get_database_tables(database_name):\n    \"\"\"Get tables for a specific database\"\"\"\n    try:\n        connection = get_mysql_connection()\n        if not connection:\n            return {'success': False, 'error': 'Could not connect to MySQL'}\n        cursor = connection.cursor()\n        cursor.execute(f\"USE `{database_name}`\")\n        cursor.execute(\"SHOW TABLES\")\n        tables = [row[0] for row in cursor.fetchall()]",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "get_table_data",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def get_table_data(database_name, table_name, limit=100):\n    \"\"\"Get data from a specific table\"\"\"\n    try:\n        connection = get_mysql_connection()\n        if not connection:\n            return {'success': False, 'error': 'Could not connect to MySQL'}\n        cursor = connection.cursor()\n        cursor.execute(f\"USE `{database_name}`\")\n        # Get column names\n        cursor.execute(f\"DESCRIBE `{table_name}`\")",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "create_database",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def create_database(database_name):\n    \"\"\"Create a new database\"\"\"\n    try:\n        connection = get_mysql_connection()\n        if not connection:\n            return {'success': False, 'error': 'Could not connect to MySQL'}\n        cursor = connection.cursor()\n        cursor.execute(f\"CREATE DATABASE `{database_name}`\")\n        connection.commit()\n        cursor.close()",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "delete_database",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def delete_database(database_name):\n    \"\"\"Delete a database\"\"\"\n    try:\n        connection = get_mysql_connection()\n        if not connection:\n            return {'success': False, 'error': 'Could not connect to MySQL'}\n        cursor = connection.cursor()\n        cursor.execute(f\"DROP DATABASE `{database_name}`\")\n        connection.commit()\n        cursor.close()",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "get_phpmyadmin_url",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def get_phpmyadmin_url():\n    \"\"\"Get or create phpMyAdmin access URL\"\"\"\n    try:\n        # Check if phpMyAdmin is installed\n        possible_paths = [\n            '/usr/share/phpmyadmin',\n            '/var/www/phpmyadmin',\n            '/usr/share/nginx/phpmyadmin',\n            '/var/www/html/phpmyadmin'\n        ]",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "list_directory_enhanced",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def list_directory_enhanced(path):\n    \"\"\"Enhanced directory listing with file types\"\"\"\n    if not is_safe_path(path):\n        return {'success': False, 'error': 'Access to this path is restricted'}\n    try:\n        if not os.path.exists(path):\n            return {'success': False, 'error': 'Directory does not exist'}\n        items = []\n        for item in os.listdir(path):\n            full_path = os.path.join(path, item)",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "read_file_content",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def read_file_content(path):\n    \"\"\"Read file content for editing\"\"\"\n    if not is_safe_path(path):\n        return {'success': False, 'error': 'Access to this path is restricted'}\n    try:\n        if not os.path.isfile(path):\n            return {'success': False, 'error': 'Not a file'}\n        file_size = os.path.getsize(path)\n        if file_size > MAX_FILE_SIZE:\n            return {'success': False, 'error': f'File too large ({file_size} bytes)'}",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "write_file_content",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def write_file_content(path, content):\n    \"\"\"Write file content with backup\"\"\"\n    if not is_safe_path(path):\n        return {'success': False, 'error': 'Access to this path is restricted'}\n    try:\n        # Create backup\n        if os.path.exists(path):\n            backup_path = path + '.backup'\n            shutil.copy2(path, backup_path)\n        with open(path, 'w', encoding='utf-8') as f:",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "get_system_health",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def get_system_health():\n    \"\"\"Comprehensive system health check\"\"\"\n    try:\n        health = {}\n        # System load\n        health['load'] = run_command_safe('uptime')['output'].strip()\n        # Disk usage\n        health['disk'] = run_command_safe('df -h')['output'].strip()\n        # Memory usage\n        health['memory'] = run_command_safe('free -h')['output'].strip()",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_login",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_login():\n    data = request.get_json()\n    if authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': True, 'message': 'Login successful'})\n    return jsonify({'success': False, 'error': 'Invalid credentials'})\n@app.route('/api/command', methods=['POST'])\ndef api_command():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_command",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_command():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    result = run_command_safe(data.get('command', ''))\n    return jsonify(result)\n@app.route('/api/ls', methods=['POST'])\ndef api_list_directory():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_list_directory",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_list_directory():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    path = data.get('path', '/')\n    result = list_directory_enhanced(path)\n    return jsonify(result)\n@app.route('/api/read', methods=['POST'])\ndef api_read_file():\n    data = request.get_json()",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_read_file",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_read_file():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    path = data.get('path', '')\n    result = read_file_content(path)\n    return jsonify(result)\n@app.route('/api/write', methods=['POST'])\ndef api_write_file():\n    data = request.get_json()",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_write_file",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_write_file():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    path = data.get('path', '')\n    content = data.get('content', '')\n    result = write_file_content(path, content)\n    return jsonify(result)\n@app.route('/api/health', methods=['POST'])\ndef api_system_health():",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_system_health",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_system_health():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    result = get_system_health()\n    return jsonify(result)\n@app.route('/api/delete', methods=['POST'])\ndef api_delete():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_delete",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_delete():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    path = data.get('path', '')\n    if not is_safe_path(path):\n        return jsonify({'success': False, 'error': 'Access restricted'})\n    try:\n        if os.path.isdir(path):\n            shutil.rmtree(path)",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_create",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_create():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    path = data.get('path', '')\n    is_dir = data.get('is_dir', False)\n    if not is_safe_path(path):\n        return jsonify({'success': False, 'error': 'Access restricted'})\n    try:\n        if is_dir:",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_list_databases",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_list_databases():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    result = list_databases()\n    return jsonify(result)\n@app.route('/api/databases/tables', methods=['POST'])\ndef api_get_database_tables():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_get_database_tables",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_get_database_tables():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    database_name = data.get('database', '')\n    result = get_database_tables(database_name)\n    return jsonify(result)\n@app.route('/api/databases/table-data', methods=['POST'])\ndef api_get_table_data():\n    data = request.get_json()",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_get_table_data",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_get_table_data():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    database_name = data.get('database', '')\n    table_name = data.get('table', '')\n    limit = data.get('limit', 100)\n    result = get_table_data(database_name, table_name, limit)\n    return jsonify(result)\n@app.route('/api/databases/create', methods=['POST'])",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_create_database",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_create_database():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    database_name = data.get('database_name', '')\n    result = create_database(database_name)\n    return jsonify(result)\n@app.route('/api/databases/delete', methods=['POST'])\ndef api_delete_database():\n    data = request.get_json()",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_delete_database",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_delete_database():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    database_name = data.get('database_name', '')\n    result = delete_database(database_name)\n    return jsonify(result)\n@app.route('/api/phpmyadmin/url', methods=['POST'])\ndef api_get_phpmyadmin_url():\n    data = request.get_json()",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_get_phpmyadmin_url",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_get_phpmyadmin_url():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    phpmyadmin_url = get_phpmyadmin_url()\n    if phpmyadmin_url:\n        return jsonify({'success': True, 'url': phpmyadmin_url})\n    else:\n        return jsonify({'success': False, 'error': 'phpMyAdmin not found'})\n@app.route('/api/phpmyadmin/install', methods=['POST'])",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "api_install_phpmyadmin",
+        "kind": 2,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "def api_install_phpmyadmin():\n    data = request.get_json()\n    if not authenticate(data.get('username'), data.get('password')):\n        return jsonify({'success': False, 'error': 'Authentication required'})\n    try:\n        # Install phpMyAdmin\n        result = run_command_safe('yum install phpmyadmin -y || apt install phpmyadmin -y')\n        if result['success']:\n            # Ensure it's accessible via web\n            phpmyadmin_url = get_phpmyadmin_url()",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "app",
+        "kind": 5,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "app = Flask(__name__)\nCORS(app)\n# Enhanced authentication\nVALID_CREDENTIALS = {\n    'admin': 'Iv@n0772717963'\n}\n# Database configuration\nDB_CONFIG = {\n    'host': 'localhost',\n    'user': 'root',",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "VALID_CREDENTIALS",
+        "kind": 5,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "VALID_CREDENTIALS = {\n    'admin': 'Iv@n0772717963'\n}\n# Database configuration\nDB_CONFIG = {\n    'host': 'localhost',\n    'user': 'root',\n    'passwd': '',  # You'll need to set this\n    'charset': 'utf8mb4'\n}",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "DB_CONFIG",
+        "kind": 5,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "DB_CONFIG = {\n    'host': 'localhost',\n    'user': 'root',\n    'passwd': '',  # You'll need to set this\n    'charset': 'utf8mb4'\n}\n# Fail-safe configuration\nMAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB\nALLOWED_COMMANDS = ['ls', 'cd', 'cat', 'find', 'grep', 'ps', 'df', 'du', 'tail', 'head']\nRESTRICTED_PATHS = ['/proc', '/sys', '/dev']",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "MAX_FILE_SIZE",
+        "kind": 5,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB\nALLOWED_COMMANDS = ['ls', 'cd', 'cat', 'find', 'grep', 'ps', 'df', 'du', 'tail', 'head']\nRESTRICTED_PATHS = ['/proc', '/sys', '/dev']\ndef authenticate(username, password):\n    return VALID_CREDENTIALS.get(username) == password\ndef is_safe_path(path):\n    \"\"\"Prevent path traversal attacks\"\"\"\n    try:\n        absolute_path = os.path.abspath(path)\n        for restricted in RESTRICTED_PATHS:",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "ALLOWED_COMMANDS",
+        "kind": 5,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "ALLOWED_COMMANDS = ['ls', 'cd', 'cat', 'find', 'grep', 'ps', 'df', 'du', 'tail', 'head']\nRESTRICTED_PATHS = ['/proc', '/sys', '/dev']\ndef authenticate(username, password):\n    return VALID_CREDENTIALS.get(username) == password\ndef is_safe_path(path):\n    \"\"\"Prevent path traversal attacks\"\"\"\n    try:\n        absolute_path = os.path.abspath(path)\n        for restricted in RESTRICTED_PATHS:\n            if absolute_path.startswith(restricted):",
+        "detail": "public.vps_api",
+        "documentation": {}
+    },
+    {
+        "label": "RESTRICTED_PATHS",
+        "kind": 5,
+        "importPath": "public.vps_api",
+        "description": "public.vps_api",
+        "peekOfCode": "RESTRICTED_PATHS = ['/proc', '/sys', '/dev']\ndef authenticate(username, password):\n    return VALID_CREDENTIALS.get(username) == password\ndef is_safe_path(path):\n    \"\"\"Prevent path traversal attacks\"\"\"\n    try:\n        absolute_path = os.path.abspath(path)\n        for restricted in RESTRICTED_PATHS:\n            if absolute_path.startswith(restricted):\n                return False",
+        "detail": "public.vps_api",
+        "documentation": {}
+    }
+]
