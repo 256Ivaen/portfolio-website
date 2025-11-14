@@ -547,6 +547,7 @@ function get_file_icon($file_type, $is_dir) {
             </div>
         </div>
 
+        
         <script>
             // Close modal when clicking outside
             document.getElementById('createModal').addEventListener('click', function(e) {
