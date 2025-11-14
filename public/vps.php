@@ -1,10 +1,10 @@
 <?php
-// Simple VPS File Browser - FOR TESTING ONLY
-// WARNING: This is not secure for production use!
+// VPS File Browser - FOR TESTING ONLY - FULL ACCESS
+// WARNING: This is extremely insecure for production!
 
 session_start();
 
-// Simple authentication - CHANGE THESE CREDENTIALS!
+// Simple authentication
 $valid_username = 'admin';
 $valid_password = 'Iv@n0772717963';
 
@@ -28,22 +28,19 @@ if ($_GET['logout'] ?? false) {
 // Check if authenticated
 $authenticated = $_SESSION['authenticated'] ?? false;
 
-// Get current directory
-$current_dir = $_GET['dir'] ?? getcwd();
-$current_dir = realpath($current_dir) ?: getcwd();
+// Get current directory - START FROM ROOT
+$current_dir = $_GET['dir'] ?? '/';
+$current_dir = realpath($current_dir) ?: '/';
 
-// Security: Prevent directory traversal outside home directory
-$home_dir = realpath($_SERVER['HOME'] ?? getcwd());
-if (strpos($current_dir, $home_dir) !== 0) {
-    $current_dir = $home_dir;
-}
+// REMOVED SECURITY RESTRICTIONS FOR FULL ACCESS
+$home_dir = '/';
 
 // Handle file operations
 if ($authenticated) {
     // Navigate to directory
     if (isset($_GET['cd'])) {
         $new_dir = realpath($current_dir . '/' . $_GET['cd']);
-        if ($new_dir && strpos($new_dir, $home_dir) === 0 && is_dir($new_dir)) {
+        if ($new_dir && is_dir($new_dir)) {
             $current_dir = $new_dir;
             header('Location: ?dir=' . urlencode($current_dir));
             exit;
@@ -53,7 +50,7 @@ if ($authenticated) {
     // Go up one directory
     if (isset($_GET['up'])) {
         $parent_dir = dirname($current_dir);
-        if (strpos($parent_dir, $home_dir) === 0) {
+        if (is_dir($parent_dir)) {
             $current_dir = $parent_dir;
             header('Location: ?dir=' . urlencode($current_dir));
             exit;
@@ -63,19 +60,23 @@ if ($authenticated) {
     // Read directory contents
     $files = [];
     if (is_dir($current_dir) && is_readable($current_dir)) {
-        $items = scandir($current_dir);
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..') continue;
-            
-            $full_path = $current_dir . '/' . $item;
-            $files[] = [
-                'name' => $item,
-                'path' => $full_path,
-                'is_dir' => is_dir($full_path),
-                'size' => is_file($full_path) ? filesize($full_path) : 0,
-                'perms' => substr(sprintf('%o', fileperms($full_path)), -4),
-                'modified' => date('Y-m-d H:i:s', filemtime($full_path))
-            ];
+        $items = @scandir($current_dir);
+        if ($items) {
+            foreach ($items as $item) {
+                if ($item === '.' || $item === '..') continue;
+                
+                $full_path = $current_dir . '/' . $item;
+                $files[] = [
+                    'name' => $item,
+                    'path' => $full_path,
+                    'is_dir' => is_dir($full_path),
+                    'size' => is_file($full_path) ? filesize($full_path) : 0,
+                    'perms' => substr(sprintf('%o', fileperms($full_path)), -4),
+                    'modified' => date('Y-m-d H:i:s', filemtime($full_path)),
+                    'owner' => function_exists('posix_getpwuid') ? posix_getpwuid(fileowner($full_path))['name'] : 'Unknown',
+                    'readable' => is_readable($full_path)
+                ];
+            }
         }
     }
     
@@ -85,6 +86,49 @@ if ($authenticated) {
         if (!$a['is_dir'] && $b['is_dir']) return 1;
         return strcmp($a['name'], $b['name']);
     });
+    
+    // System information
+    $system_info = [
+        'PHP Version' => phpversion(),
+        'Server Software' => $_SERVER['SERVER_SOFTWARE'] ?? 'N/A',
+        'Current User' => get_current_user(),
+        'System Load' => function_exists('sys_getloadavg') ? implode(', ', sys_getloadavg()) : 'N/A',
+        'Memory Usage' => round(memory_get_usage(true) / 1024 / 1024, 2) . ' MB',
+        'Disk Free Space' => round(disk_free_space($current_dir) / (1024 * 1024 * 1024), 2) . ' GB',
+        'Disk Total Space' => round(disk_total_space($current_dir) / (1024 * 1024 * 1024), 2) . ' GB'
+    ];
+    
+    // Quick access directories
+    $quick_dirs = [
+        '/' => 'Root',
+        '/home' => 'Home Directories',
+        '/etc' => 'System Configuration',
+        '/var' => 'Variable Data',
+        '/var/www' => 'Websites',
+        '/var/log' => 'Log Files',
+        '/etc/nginx' => 'Nginx Config',
+        '/etc/httpd' => 'Apache Config',
+        '/etc/mysql' => 'MySQL Config',
+        '/etc/ssl' => 'SSL Certificates',
+        '/var/lib/mysql' => 'MySQL Data',
+        '/root' => 'Root Home',
+        '/tmp' => 'Temporary Files'
+    ];
+    
+    // Try to get database info
+    $databases = [];
+    if (function_exists('shell_exec')) {
+        // Try to get MySQL databases
+        $mysql_output = @shell_exec('mysql -e "SHOW DATABASES;" 2>/dev/null');
+        if ($mysql_output) {
+            $db_lines = explode("\n", $mysql_output);
+            foreach ($db_lines as $line) {
+                if (trim($line) && !in_array(trim($line), ['Database', 'information_schema', 'performance_schema', 'mysql'])) {
+                    $databases[] = trim($line);
+                }
+            }
+        }
+    }
 }
 
 ?>
@@ -93,11 +137,11 @@ if ($authenticated) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VPS File Browser</title>
+    <title>VPS File Browser - Full Access</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
         .content { padding: 20px; }
         .login-form { max-width: 400px; margin: 50px auto; padding: 20px; }
@@ -107,7 +151,6 @@ if ($authenticated) {
         button { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
         button:hover { background: #2980b9; }
         .error { background: #e74c3c; color: white; padding: 10px; border-radius: 4px; margin-bottom: 15px; }
-        .success { background: #27ae60; color: white; padding: 10px; border-radius: 4px; margin-bottom: 15px; }
         .file-browser { margin-top: 20px; }
         .breadcrumb { background: #ecf0f1; padding: 10px; border-radius: 4px; margin-bottom: 15px; }
         .file-table { width: 100%; border-collapse: collapse; }
@@ -120,15 +163,21 @@ if ($authenticated) {
         .actions { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; }
         .logout { float: right; background: #e74c3c; }
         .logout:hover { background: #c0392b; }
-        .system-info { background: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
-        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+        .system-info, .quick-access, .database-info { background: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; }
+        .quick-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
+        .quick-link { background: #3498db; color: white; padding: 10px; border-radius: 4px; text-decoration: none; text-align: center; }
+        .quick-link:hover { background: #2980b9; }
+        .unreadable { color: #e74c3c; font-style: italic; }
+        .database-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .db-tag { background: #27ae60; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>VPS File Browser</h1>
-            <p>Simple file management interface</p>
+            <h1>VPS File Browser - Full System Access</h1>
+            <p>⚠️ WARNING: This provides full system access - For testing only!</p>
         </div>
         
         <div class="content">
@@ -147,14 +196,10 @@ if ($authenticated) {
                         </div>
                         <div class="form-group">
                             <label for="password">Password:</label>
-                            <input type="password" id="password" name="password" value="password123" required>
+                            <input type="password" id="password" name="password" value="Iv@n0772717963" required>
                         </div>
                         <button type="submit">Login</button>
                     </form>
-                    <p style="margin-top: 15px; font-size: 12px; color: #666;">
-                        Default credentials: admin / password123<br>
-                        <strong>Change these in the PHP code!</strong>
-                    </p>
                 </div>
                 
             <?php else: ?>
@@ -166,12 +211,35 @@ if ($authenticated) {
                 
                 <!-- System Information -->
                 <div class="system-info">
-                    <h3>System Information</h3>
+                    <h3>📊 System Information</h3>
                     <div class="info-grid">
-                        <div><strong>Server:</strong> <?php echo htmlspecialchars($_SERVER['SERVER_SOFTWARE'] ?? 'N/A'); ?></div>
-                        <div><strong>PHP Version:</strong> <?php echo phpversion(); ?></div>
-                        <div><strong>Current Directory:</strong> <?php echo htmlspecialchars($current_dir); ?></div>
-                        <div><strong>Free Space:</strong> <?php echo round(disk_free_space($current_dir) / (1024 * 1024 * 1024), 2); ?> GB free</div>
+                        <?php foreach ($system_info as $key => $value): ?>
+                            <div><strong><?php echo htmlspecialchars($key); ?>:</strong> <?php echo htmlspecialchars($value); ?></div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                
+                <!-- Database Information -->
+                <?php if (!empty($databases)): ?>
+                <div class="database-info">
+                    <h3>🗃️ MySQL Databases</h3>
+                    <div class="database-list">
+                        <?php foreach ($databases as $db): ?>
+                            <span class="db-tag"><?php echo htmlspecialchars($db); ?></span>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+                
+                <!-- Quick Access -->
+                <div class="quick-access">
+                    <h3>🚀 Quick Access</h3>
+                    <div class="quick-links">
+                        <?php foreach ($quick_dirs as $path => $name): ?>
+                            <a href="?dir=<?php echo urlencode($path); ?>" class="quick-link">
+                                <?php echo htmlspecialchars($name); ?>
+                            </a>
+                        <?php endforeach; ?>
                     </div>
                 </div>
                 
@@ -180,11 +248,11 @@ if ($authenticated) {
                     <?php
                     $path_parts = [];
                     $temp_path = $current_dir;
-                    while ($temp_path !== $home_dir && $temp_path !== dirname($temp_path)) {
-                        $path_parts[] = ['name' => basename($temp_path), 'path' => $temp_path];
+                    while ($temp_path !== '/' && $temp_path !== dirname($temp_path)) {
+                        $path_parts[] = ['name' => basename($temp_path) ?: '/', 'path' => $temp_path];
                         $temp_path = dirname($temp_path);
                     }
-                    $path_parts[] = ['name' => 'Home', 'path' => $home_dir];
+                    $path_parts[] = ['name' => 'Root', 'path' => '/'];
                     $path_parts = array_reverse($path_parts);
                     
                     foreach ($path_parts as $index => $part) {
@@ -206,14 +274,15 @@ if ($authenticated) {
                                 <th>Name</th>
                                 <th>Size</th>
                                 <th>Permissions</th>
+                                <th>Owner</th>
                                 <th>Modified</th>
                                 <th>Type</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php if ($current_dir !== $home_dir): ?>
+                            <?php if ($current_dir !== '/'): ?>
                                 <tr>
-                                    <td colspan="5">
+                                    <td colspan="6">
                                         <a href="?dir=<?php echo urlencode(dirname($current_dir)); ?>">📁 .. (Parent Directory)</a>
                                     </td>
                                 </tr>
@@ -228,6 +297,9 @@ if ($authenticated) {
                                             </a>
                                         <?php else: ?>
                                             📄 <span class="file"><?php echo htmlspecialchars($file['name']); ?></span>
+                                        <?php endif; ?>
+                                        <?php if (!$file['readable']): ?>
+                                            <span class="unreadable"> (no access)</span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="size">
@@ -249,6 +321,7 @@ if ($authenticated) {
                                         <?php endif; ?>
                                     </td>
                                     <td><code><?php echo htmlspecialchars($file['perms']); ?></code></td>
+                                    <td><?php echo htmlspecialchars($file['owner']); ?></td>
                                     <td><?php echo htmlspecialchars($file['modified']); ?></td>
                                     <td>
                                         <?php if ($file['is_dir']): ?>
@@ -265,8 +338,8 @@ if ($authenticated) {
                             
                             <?php if (empty($files)): ?>
                                 <tr>
-                                    <td colspan="5" style="text-align: center; color: #666;">
-                                        This directory is empty
+                                    <td colspan="6" style="text-align: center; color: #666;">
+                                        This directory is empty or not accessible
                                     </td>
                                 </tr>
                             <?php endif; ?>
